@@ -7,8 +7,12 @@ local o = {
     lsdvd = 'lsdvd',
     dvd_device = mp.get_property('dvd-device', '/dev/dvd'),
 
+    --wsl options for limitted windows support
     wsl = false,
+    dvd_drive = "",
     wsl_password = ""
+
+    --ass options
 }
 
 opt.read_options(o, 'dvd_browser')
@@ -16,7 +20,6 @@ opt.read_options(o, 'dvd_browser')
 if (o.dvd_device == "") then o.dvd_device = '/dev/dvd' end
 
 local dvd_structure = {}
-local titles = {}
 local ov = mp.create_osd_overlay('ass-events')
 ov.hidden = true
 local state = {
@@ -31,16 +34,16 @@ end
 local function read_disc()
     local args
     if o.wsl then
-        local r = mp.command_native({
+        mp.command_native({
             name = 'subprocess',
             playback_only = false,
-            args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', 'G:', '/mnt/dvd'}
+            args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', o.dvd_drive..":", o.dvd_device}
         })
 
         --settings wsl arguments
-        args = {'wsl', 'lsdvd', o.dvd_device, '-Oy'}
+        args = {'wsl', o.lsdvd, o.dvd_device, '-Oy'}
     else
-        args = {'lsdvd', o.dvd_device, '-Oy'}
+        args = {o.lsdvd, o.dvd_device, '-Oy'}
     end
 
     local cmd, error = mp.command_native({
@@ -69,7 +72,7 @@ end
 
 --update the DVD browser
 function update_browser()
-    ov.data = ""
+    ov.data = dvd_structure.title.."\\N".."------------------------------------".."\\N"
     for _,value in ipairs(dvd_structure.track) do
         append("track "..value.ix.." ["..value.length.."]")
     end
@@ -84,7 +87,7 @@ mp.observe_property('file-format', 'string', function(_, format)
     read_disc()
 end)
 
-mp.add_key_binding('Shift+browser', 'dvd-browser', function()
+mp.add_key_binding('Shift+MENU', 'dvd-browser', function()
     update_browser()
 
     if ov.hidden then

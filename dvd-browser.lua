@@ -137,7 +137,7 @@ function read_disc()
     if o.wsl then
         msg.verbose('wsl compatibility mode enabled')
 
-        local dvd_device = mp.get_property('dvd-device', '')
+        local dvd_device = mp.get_property('dvd-device', ''):gsub([[\]], [[/]])
         msg.verbose('mounting '..dvd_device..' at '..o.dvd_device)
 
         mp.command_native({

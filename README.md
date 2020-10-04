@@ -26,7 +26,7 @@ The following keybinds are only set while the browser is open:
     Ctrl+r          rescan dvd and refresh the browser
 
 ## File Browser
-While this swcript works perfectly well on its own, I have also designed it to interface with my script [mpv-file-browser](https://github.com/CogentRedTester/mpv-file-browser).
+While this script works perfectly well on its own, I have also designed it to interface with my script [mpv-file-browser](https://github.com/CogentRedTester/mpv-file-browser).
 If you use both scripts and enable the options `file_browser` for this script, and `dvd_browser` for the other then entering the `dvd-device` directory from file-browser will automatically pass control to this script. The following file-browser keybinds will also be enabled when in the dvd-browser:
 
     LEFT            move back to the directory above dvd-device in file-browser

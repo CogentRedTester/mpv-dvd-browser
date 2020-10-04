@@ -1,3 +1,13 @@
+--[[
+    mpv-dvd-browser
+
+    This script uses the `lsdvd` commandline utility to allow users to view and select titles
+    for DVDs from directly within mpv. The browser is interractive and allows for both playing
+    the selected title, or appending it to the playlist.
+
+    For full documentation see: https://github.com/CogentRedTester/mpv-dvd-browser
+]]--
+
 local mp = require 'mp'
 local msg = require 'mp.msg'
 local opt = require 'mp.options'
@@ -84,6 +94,7 @@ local keybinds = {
     {"Shift+ENTER", "append_playlist", function() open_file('append') end, {}},
     {'DOWN', 'scroll_down', function() scroll_down() end, {repeatable = true}},
     {'UP', 'scroll_up', function() scroll_up() end, {repeatable = true}},
+    {'Ctrl+r', 'reload', function() read_disc() ; update_ass() end, {}},
 }
 
 --automatically match to the current dvd device
@@ -104,9 +115,14 @@ local function append(str, newline)
 end
 
 --sends a call to lsdvd to read the contents of the disc
-local function read_disc()
+function read_disc()
+    msg.verbose('reading contents of ' .. o.dvd_device)
+
     local args
     if o.wsl then
+        msg.verbose('wsl compatibility mode enabled')
+        msg.verbose('mounting '..o.drive_letter..':'..' at '..o.dvd_device)
+
         mp.command_native({
             name = 'subprocess',
             playback_only = false,
@@ -201,6 +217,7 @@ local function load_disc()
         state.playing_disc = false
         return
     end
+    msg.verbose('playing dvd')
 
     --if we have not stopped playing a disc then there's no need to parse the disc again
     if not state.playing_disc then read_disc() end
@@ -259,6 +276,8 @@ local function load_disc()
         --if the path is dvd, then we actually need to fully replace this entry in the playlist,
         --otherwise the whole disc will be added to the playlist again if moving back to this entry
         if (path == "dvd://") then
+            msg.verbose('replacing dvd:// with playlist')
+
             load_dvd_title(dvd.track[curr_title], "append")
             length = length+1
             mp.commandv('playlist-move', length-1, pos+1)

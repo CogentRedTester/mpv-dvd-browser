@@ -170,8 +170,11 @@ function read_disc()
         --adding the microseconds as is
         local index = tostring(l):find([[.[^.]*$]])
         local str
-        if index == 1 then str = "000"
-        else str = string.format('%03d', lstr:sub(index-1)) end
+        if index == 1 then str = "00"
+        else
+            str = tostring(lstr:sub(index+1))
+            str = string.format('%02d', str)
+        end
         l = math.floor(l)
 
         local seconds = l%60

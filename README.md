@@ -49,12 +49,13 @@ The following options are required to get wsl working:
 
     wsl=yes                 enables wsl compatibility mode
     wsl_password=password   wsl user password for running `sudo mount`
-    drive_letter=G          the drive letter for the DVD drive on windows
     dvd_device=/mnt/dvd     the desired mount point on the linux filesystem
 
 For reference the exact command that will be sent to mount the DVD drive is:
     
-    wsl echo "[password]" | sudo -S mount drvfs [drive_letter]: [dvd_device]
+    wsl echo "[password]" | sudo -S mount drvfs {dvd-device} [dvd_device]
+
+where `dvd-device` is the contents of the --dvd-device option
 
 ## Configuration
 The full list of options and their default values are available in [dvd_browser.conf](dvd_browser.conf)

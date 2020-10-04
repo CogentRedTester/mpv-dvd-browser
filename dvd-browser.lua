@@ -53,7 +53,6 @@ local o = {
     --wsl options for limitted windows support
     ------------------------------------------
     wsl = false,
-    drive_letter = "",
     wsl_password = "",
 
     --------------
@@ -130,12 +129,14 @@ function read_disc()
     local args
     if o.wsl then
         msg.verbose('wsl compatibility mode enabled')
-        msg.verbose('mounting '..o.drive_letter..':'..' at '..o.dvd_device)
+
+        local dvd_device = mp.get_property('dvd-device', '')
+        msg.verbose('mounting '..dvd_device..' at '..o.dvd_device)
 
         mp.command_native({
             name = 'subprocess',
             playback_only = false,
-            args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', o.drive_letter..":", o.dvd_device}
+            args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', dvd_device, o.dvd_device}
         })
 
         --setting wsl arguments

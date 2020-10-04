@@ -11,7 +11,13 @@ local o = {
     --It is recommended that this be left blank unless using wsl
     dvd_device = "",
 
+    --number of titles to display on the screen at once
     num_entries = 20,
+
+    --by default the player enters an infinite loop of the dvd menu screen after moving past
+    --the final chapter of the title. If this is true, then the script will automatically configure
+    --mpv to end playback before entering the loop
+    skip_menu = true,
 
     ---------------------
     --playlist options:
@@ -46,8 +52,7 @@ local o = {
     ass_playing = "{\\c&H33ff66&}",
     ass_footerheader = "{\\c&00ccff&\\fs16}",
     ass_cursor = "{\\c&00ccff&}",
-    ass_length = "",
-    ass_chapters = ""
+    ass_length = "{\\fs20\\c&aaaaaa&}"
 }
 
 opt.read_options(o, 'dvd_browser')
@@ -62,6 +67,7 @@ opt.read_options(o, 'dvd_browser')
             length = length of each title
             ix = numerical id of the title starting from 1
             chapter = array of chapters in the title
+            num_chapters = length of chapters array (added by me)
 ]]--
 local dvd = {}
 local ov = mp.create_osd_overlay('ass-events')
@@ -138,6 +144,10 @@ local function read_disc()
 
     --making modifications to all the entries
     for i = 2, #dvd.track do
+        --saving the chapter count
+        dvd.track[i].num_chapters = #dvd.track[i].chapter
+
+        --modifying the length
         local l = dvd.track[i].length
         local lstr = tostring(l)
 
@@ -171,6 +181,16 @@ local function read_disc()
     dvd.track[#dvd.track] = nil
 
     state.playing_disc = true
+end
+
+--appends the specified playlist item along with the desired options
+local function append_playlist_item(title)
+    local i = title.ix-1
+    local optionstr = "title="..dvd.title.." - Title "..i
+    if o.skip_menu then
+        optionstr = optionstr..',end=#'..title.num_chapters
+    end
+    mp.commandv("loadfile", "dvd://"..i, "append", optionstr)
 end
 
 --loads disc information into mpv player and inserts disc titles into the playlist
@@ -219,10 +239,10 @@ local function load_disc()
         local pos = mp.get_property_number('playlist-pos', 1)
 
         --add all of the files to the playlist
-        for i = 1, #dvd.track-1 do
+        for i = 1, #dvd.track do
             if i == curr_title then goto continue end
 
-            mp.commandv("loadfile", "dvd://"..i, "append", "title="..dvd.title.." - Title "..i)
+            append_playlist_item(dvd.track[i])
             length = length + 1
 
             --we need slightly different behaviour when prepending vs appending a playlist entry
@@ -239,7 +259,7 @@ local function load_disc()
         --if the path is dvd, then we actually need to fully replace this entry in the playlist,
         --otherwise the whole disc will be added to the playlist again if moving back to this entry
         if (path == "dvd://") then
-            mp.commandv("loadfile", "dvd://"..curr_title, "append", "title="..dvd.title.." - Title "..curr_title)
+            append_playlist_item(dvd.track[curr_title])
             length = length+1
             mp.commandv('playlist-move', length-1, pos+1)
             mp.commandv('playlist-remove', 'current')
@@ -288,7 +308,8 @@ function update_ass()
         if i == state.selected then append(o.ass_cursor..[[➤  ]]..o.ass_selected)
         else append([[   ]]) end
 
-        append("Title "..(v.ix-1).."   ["..v.length.."]", true)
+        append("Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]")
+        append("   "..v.num_chapters.." chapters", true)
     end
 
     if overflow then ov.data = ov.data..'\\N'..o.ass_footerheader..#list-finish..' items remaining' end

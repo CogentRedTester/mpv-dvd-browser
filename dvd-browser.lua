@@ -36,18 +36,36 @@ local o = {
 
 opt.read_options(o, 'dvd_browser')
 
+--[[
+    lsdvd returns a JSON object with a number of details about the dvd
+    some notable values are:
+        title = title of the dvd
+        longest_track = longest track on the dvd
+        device = path to the dvd mount point
+        track = array of 'titles'/tracks on the disc
+            length = length of each title
+            ix = numerical id of the title starting from 1
+            chapter = array of chapters in the title
+]]--
 local dvd = {}
 local ov = mp.create_osd_overlay('ass-events')
 ov.hidden = true
 local state = {
-    disc = false
+    playing_disc = false
+}
+
+local keybinds = {
+    {"ESC", "exit", function() close_browser() end, {}}
 }
 
 --automatically match to the current dvd device
 if (o.dvd_device == "") then
     mp.observe_property('dvd-device', 'string', function(_, device)
+        if device == "" then device = "/dev/dvd" end
         o.dvd_device = device
-        state.disc = false
+
+        --we set this to false to force a dvd rescan
+        state.playing_disc = false
     end)
 end
 
@@ -89,53 +107,55 @@ local function read_disc()
 
     if (not dvd) then
         msg.error(cmd.stderr)
-        state.disc = false
+        state.playing_disc = false
         return
     end
-    msg.debug(utils.to_string(dvd))
-    state.disc = true
+    msg.trace(utils.to_string(dvd))
+    state.playing_disc = true
     if dvd.title == "unknown" then dvd.title = "dvd://" end
 end
 
---
+--loads disc information into mpv player and inserts disc titles into the playlist
 local function load_disc()
     local path = mp.get_property('stream-open-filename', '')
 
     if path:find('dvd://') ~= 1 then
-        state.disc = false
+        state.playing_disc = false
         return
     end
 
     --if we have not stopped playing a disc then there's no need to parse the disc again
-    if not state.disc then read_disc() end
-    if (not state.disc) then return end
+    if not state.playing_disc then read_disc() end
+
+    --if we still can't detect a disc then return
+    if (not state.playing_disc) then return end
 
     --if we successfully loaded info about the disc it's time to do some other stuff:
-
     --this code block finds the default title of the disc
     local curr_title
+
+    --if dvd:// was sent and this option is set we set the default ourselves
     if path == "dvd://" and o.start_from_first_title then
         mp.set_property('stream-open-filename', "dvd://1")
         curr_title = 1
+
+    --otherwise if just dvd:// was sent we need to find the longest title
     elseif path == "dvd://" then
-        local max = 0
-        local index = 0
-        for i = 1, #dvd.track do
-            if (dvd.track[i].length > max) then
-                index = i
-                max = dvd.track[i].length
-            end
-        end
-        curr_title = index-1
+        curr_title = dvd.longest_track-1
+
+    --if the user specified a title number we use that
     else
-        curr_title = tonumber(path:sub(-1))
+        --treating whatever comes after "dvd://" as the title number
+        curr_title = tonumber(path:sub(7))
     end
 
+    --modifying the window title to mention the title
     mp.set_property('title', dvd.title.." - Title "..curr_title)
-    msg.verbose('loading track '..curr_title)
+    msg.verbose('loading title '..curr_title)
     local length = mp.get_property_number('playlist-count', 1)
 
     --load files in the playlist under the specified conditions
+    --if o.create_playlist is false then the function effectively ends here
     if o.create_playlist and ((path == "dvd://" and o.treat_root_as_playlist) or length == 1) then
         local pos = mp.get_property_number('playlist-pos', 1)
 
@@ -176,17 +196,37 @@ function update_browser()
     end
 end
 
---if we're playing a disc then read it
+--opens the browser and declares dynamic keybinds
+function open_browser()
+    for i = 1, #keybinds do
+        local v = keybinds[i]
+        mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
+    end
+
+    ov.hidden = false
+    ov:update()
+end
+
+--closes the browser and removed dynamic keybinds
+function close_browser()
+    for i = 1, #keybinds do
+        mp.remove_key_binding('dynamic/'..keybinds[i][2])
+    end
+
+    ov.hidden = true
+    ov:remove()
+end
+
+--if we're playing a disc then read it and modify playlist appropriately
 mp.add_hook('on_load', 50, load_disc)
 
 mp.add_key_binding('Shift+MENU', 'dvd-browser', function()
+    if not state.playing_disc then return end
     update_browser()
 
     if ov.hidden then
-        ov.hidden = false
-        ov:update()
+        open_browser()
     else
-        ov.hidden = true
-        ov:remove()
+        close_browser()
     end
 end)

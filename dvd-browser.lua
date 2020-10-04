@@ -127,12 +127,12 @@ local function read_disc()
         --adding the microseconds as is
         local index = tostring(l):find([[.[^.]*$]])
         local str
-        if index == nil then str = ""
-        else str = lstr:sub(index) end
+        if index == 1 then str = "000"
+        else str = string.format('%03d', lstr:sub(index-1)) end
         l = math.floor(l)
 
         local seconds = l%60
-        str = string.format('%02d', seconds) .. str
+        str = string.format('%02d', seconds) .. '.' .. str
         l = (l - seconds)/60
 
         local mins = l%60

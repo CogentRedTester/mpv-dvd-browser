@@ -29,13 +29,16 @@ local o = {
     --mpv to end playback before entering the loop
     skip_menu = true,
 
-    ---------------------
-    --playlist options:
-    ---------------------
-
     --changes default mpv behaviour and loads the first title instead of the longest when
     --the title isn't specified
     start_from_first_title = true,
+
+    --enables compatibility with mpv-file-browser
+    file_browser = false,
+
+    ---------------------
+    --playlist options:
+    ---------------------
 
     --adds the previous and subsequent titles to the playlist when playing a dvd
     --only does this when there is only one item in the playlist
@@ -85,7 +88,7 @@ ov.hidden = true
 local state = {
     playing_disc = false,
     selected = 1,
-
+    flag_update = false
 }
 
 local keybinds = {
@@ -94,7 +97,13 @@ local keybinds = {
     {"Shift+ENTER", "append_playlist", function() open_file('append') end, {}},
     {'DOWN', 'scroll_down', function() scroll_down() end, {repeatable = true}},
     {'UP', 'scroll_up', function() scroll_up() end, {repeatable = true}},
-    {'Ctrl+r', 'reload', function() read_disc() ; update_ass() end, {}},
+    {'Ctrl+r', 'reload', function() read_disc() ; update_ass() end, {}}
+}
+
+local file_browser_keybinds = {
+    {'LEFT', 'up_dir', function() up_dir() end, {}},
+    {'Shift+HOME', 'root', function() goto_root() end, {}},
+
 }
 
 --automatically match to the current dvd device
@@ -218,6 +227,7 @@ local function load_disc()
 
     if path:find('dvd://') ~= 1 then
         state.playing_disc = false
+        if not ov.hidden then close_browser() end
         return
     end
     msg.verbose('playing dvd')
@@ -322,6 +332,7 @@ function update_ass()
     --adding a header to show there are items above in the list
     if start > 1 then append(o.ass_footerheader..(start-1)..' items above\\N\\N') end
 
+    local playing_file = mp.get_property('filename', "1")
     for i=start, finish do
         local v = dvd.track[i]
         append(o.ass_body)
@@ -329,6 +340,9 @@ function update_ass()
         --the below text contains unicode whitespace characters
         if i == state.selected then append(o.ass_cursor..[[➤  ]]..o.ass_selected)
         else append([[   ]]) end
+
+        --prints the currently-playing icon and style
+        if playing_file == tostring(i) then append(o.ass_playing..[[▶ ]]) end
 
         append("Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]")
         append("   "..v.num_chapters.." chapters", true)
@@ -366,7 +380,8 @@ function open_browser()
     end
 
     ov.hidden = false
-    ov:update()
+    if state.flag_update then update_ass()
+    else ov:update() end
 end
 
 --closes the browser and removed dynamic keybinds
@@ -381,6 +396,11 @@ end
 
 --if we're playing a disc then read it and modify playlist appropriately
 mp.add_hook('on_load', 50, load_disc)
+
+mp.observe_property('path', 'string', function(_,path)
+    if not ov.hidden then update_ass()
+    else state.flag_update = true end
+end)
 
 mp.add_key_binding('Shift+MENU', 'dvd-browser', function()
     if not state.playing_disc then return end

@@ -14,7 +14,7 @@ While in the browser you can move the cursor to directly select which title to p
 ## Keybinds
 The following keybind is set by default
 
-    Shift+MENU            toggles the browser
+    MENU            toggles the browser
 
 The following keybinds are only set while the browser is open:
 
@@ -24,6 +24,16 @@ The following keybinds are only set while the browser is open:
     DOWN            move cursor down the list
     UP              move cursor up the list
     Ctrl+r          rescan dvd and refresh the browser
+
+## File Browser
+While this swcript works perfectly well on its own, I have also designed it to interface with my script [mpv-file-browser](https://github.com/CogentRedTester/mpv-file-browser).
+If you use both scripts and enable the options `file_browser` for this script, and `dvd_browser` for the other then entering the `dvd-device` directory from file-browser will automatically pass control to this script. The following file-browser keybinds will also be enabled when in the dvd-browser:
+
+    LEFT            move back to the directory above dvd-device in file-browser
+    Home            open the directory of the currently playing file in file-browser
+    Shift+HOME      open the file-browser ROOT
+
+Also make sure that you are using just the file-browser keybind, you can overwrite the keybind for this script by putting `MENU script-binding browse-files` in input.conf.
 
 ## Menu Loop
 Normally when mpv is playing a DVD title it enters an infinite loop of the menu screen after playback moves beyond the last chapter of track.

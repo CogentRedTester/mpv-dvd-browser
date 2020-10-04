@@ -101,6 +101,7 @@ local keybinds = {
 
 local file_browser_keybinds = {
     {'LEFT', 'up_dir', function() up_dir() end, {}},
+    {'HOME', 'goto_current', function() close_browser() ; mp.commandv('script-message', 'goto-current-directory') end, {}},
     {'Shift+HOME', 'root', function() close_browser() ; mp.commandv('script-message', 'goto-root-directory') end, {}}
 }
 
@@ -401,7 +402,7 @@ end
 function up_dir()
     local dir
 
-    if (o.wsl) then dir = o.drive_letter..':/'
+    if (o.wsl) then dir = mp.get_property('dvd-device', '')
     else dir = o.dvd_device end
 
     dir = dir:reverse()
@@ -469,7 +470,9 @@ mp.observe_property('path', 'string', function(_,path)
     else state.flag_update = true end
 end)
 
-mp.add_key_binding('Shift+MENU', 'dvd-browser', function()
+mp.register_script_message('browse-dvd', open_browser)
+
+mp.add_key_binding('MENU', 'dvd-browser', function()
     if ov.hidden then
         open_browser()
     else

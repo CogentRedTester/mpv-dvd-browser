@@ -137,14 +137,17 @@ function read_disc()
     if o.wsl then
         msg.verbose('wsl compatibility mode enabled')
 
-        local dvd_device = mp.get_property('dvd-device', ''):gsub([[\]], [[/]])
-        msg.verbose('mounting '..dvd_device..' at '..o.dvd_device)
+        --if wsl password is not set then we'll assume the user has mounted manually
+        if o.wsl_password ~= "" then
+            local dvd_device = mp.get_property('dvd-device', ''):gsub([[\]], [[/]])
+            msg.verbose('mounting '..dvd_device..' at '..o.dvd_device)
 
-        mp.command_native({
-            name = 'subprocess',
-            playback_only = false,
-            args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', dvd_device, o.dvd_device}
-        })
+            mp.command_native({
+                name = 'subprocess',
+                playback_only = false,
+                args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', dvd_device, o.dvd_device}
+            })
+        end
 
         --setting wsl arguments
         args = {'wsl', o.lsdvd, o.dvd_device, '-Oy', '-c'}

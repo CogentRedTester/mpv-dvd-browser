@@ -52,20 +52,21 @@ To make this a little smoother the script changes the default mpv behaviour and 
 All of these modifications can be disabled in the [configuration file](dvd_browser.conf).
 
 ## Windows Support
-Since `lsdvd` is only available for Linux this script cannot support windows directly. However, since I myself am forced to use windows, I have added special compatibility for using `lsdvd` on [wsl](https://docs.microsoft.com/en-us/windows/wsl/about).
-This requires that the script be able to automatically mount the DVD drive within the linux filesystem.
+Since `lsdvd` is only available for Linux this script cannot support windows directly. However, since I myself am forced to use windows, I have added special compatibility for using `lsdvd` on [wsl](https://docs.microsoft.com/en-us/windows/wsl/about). This requires that the windows DVD drive be mounted inside the linux filesystem.
 
 The following options are required to get wsl working:
 
     wsl=yes                 enables wsl compatibility mode
-    wsl_password=password   wsl user password for running `sudo mount`
-    dvd_device=/mnt/dvd     the desired mount point on the linux filesystem
+    dvd_device=/mnt/dvd     the dvd mount point on the linux filesystem
 
-For reference the exact command that will be sent to mount the DVD drive is:
+Additionally if you set the option `wsl_password` to your user password then the script will automatically mount the windows DVD directory
+to the directory specified by the `dvd_device` script-opt.
+
+For reference the exact command that will be sent to mount the DVD is:
     
-    wsl echo "[password]" | sudo -S mount drvfs {dvd-device} [dvd_device]
+    wsl echo "[wsl_password]" | sudo -S mount drvfs {dvd-device} [dvd_device]
 
-where `dvd-device` is the contents of the --dvd-device option
+where `dvd-device` is the contents of mpv's --dvd-device option
 
 ## Configuration
 The full list of options and their default values are available in [dvd_browser.conf](dvd_browser.conf)

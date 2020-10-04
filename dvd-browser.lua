@@ -101,8 +101,7 @@ local keybinds = {
 
 local file_browser_keybinds = {
     {'LEFT', 'up_dir', function() up_dir() end, {}},
-    {'Shift+HOME', 'root', function() goto_root() end, {}},
-
+    {'Shift+HOME', 'root', function() close_browser() ; mp.commandv('script-message', 'goto-root-directory') end, {}}
 }
 
 --automatically match to the current dvd device
@@ -120,6 +119,13 @@ end
 local function append(str, newline)
     ov.data = ov.data .. str
     if newline then ov.data = ov.data.."\\N" end
+end
+
+--this function updates dvd information and updates the browser
+function update()
+    read_disc()
+    update_ass()
+    ov:update()
 end
 
 --sends a call to lsdvd to read the contents of the disc
@@ -222,13 +228,13 @@ local function load_dvd_title(title, flag)
     mp.commandv("loadfile", "dvd://"..i, flag, optionstr)
 end
 
---loads disc information into mpv player and inserts disc titles into the playlist
+--handles actions when dvd:// paths are played directly
+--updates dvd information and inserts disc titles into the playlist
 local function load_disc()
     local path = mp.get_property('stream-open-filename', '')
 
     if path:find('dvd://') ~= 1 then
         state.playing_disc = false
-        if not ov.hidden then close_browser() end
         return
     end
     msg.verbose('playing dvd')
@@ -300,12 +306,24 @@ local function load_disc()
     end
 end
 
+function load_header()
+    local title
+    if dvd == nil then title = ""
+    else title = dvd.title end
+    ov.data = o.ass_header..'📀 dvd://'..title.."\\N ---------------------------------------------------- \\N"
+end
+
 --update the DVD browser
 function update_ass()
+    load_header()
+
+    if dvd == nil then
+        append('cannot load DVD')
+        return
+    end
+
     local list = dvd.track
     local length = #list
-
-    ov.data = o.ass_header..'📀 dvd://'..dvd.title.."\\N ---------------------------------------------------- \\N"
 
     local start = 1
     local finish = start+o.num_entries-1
@@ -343,7 +361,10 @@ function update_ass()
         else append([[   ]]) end
 
         --prints the currently-playing icon and style
-        if playing_file == tostring(i) then append(o.ass_playing..[[▶ ]]) end
+        if playing_file == tostring(i) then
+            append(o.ass_playing..[[▶ ]])
+            if i == state.selected then append(o.ass_selected) end
+        end
 
         append("Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]")
         append("   "..v.num_chapters.." chapters", true)
@@ -353,24 +374,49 @@ function update_ass()
     ov:update()
 end
 
+--moves the cursor up
 function scroll_up()
     if state.selected <= 1 then return end
     state.selected = state.selected - 1
     update_ass()
 end
 
+--moves the cursor down
 function scroll_down()
     if state.selected >= #dvd.track then return end
     state.selected = state.selected + 1
     update_ass()
 end
 
+--opens the currently selected file
 function open_file(flag)
     load_dvd_title(dvd.track[state.selected], flag)
 
     if flag == 'replace' then
         close_browser()
     end
+end
+
+--for file-browser compatibility
+function up_dir()
+    local dir
+
+    if (o.wsl) then dir = o.drive_letter..':/'
+    else dir = o.dvd_device end
+
+    dir = dir:reverse()
+    local index = dir:find("[/\\]")
+
+    while index == 1 do
+        dir = dir:sub(2)
+        index = dir:find("[/\\]")
+    end
+
+    if index == nil then dir = ""
+    else dir = dir:sub(index):reverse() end
+
+    close_browser()
+    mp.commandv('script-message', 'browse-directory', dir)
 end
 
 --opens the browser and declares dynamic keybinds
@@ -380,9 +426,24 @@ function open_browser()
         mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
     end
 
+    --adds keybinds for file-browser compatibility
+    if o.file_browser then
+        for i = 1, #file_browser_keybinds do
+            local v = file_browser_keybinds[i]
+            mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
+        end
+    end
+
     ov.hidden = false
-    if state.flag_update then update_ass()
-    else ov:update() end
+
+    --if we're not currently playing the disc, then we won't know if the disc has been changed,
+    --so we do a full update
+    if not state.playing_disc then
+        update()
+    else
+        if state.flag_update then update_ass()
+        else ov:update() end
+    end
 end
 
 --closes the browser and removed dynamic keybinds
@@ -391,6 +452,11 @@ function close_browser()
         mp.remove_key_binding('dynamic/'..keybinds[i][2])
     end
 
+    if o.file_browser then
+        for i = 1, #file_browser_keybinds do
+            mp.remove_key_binding('dynamic/'..file_browser_keybinds[i][2])
+        end
+    end
     ov.hidden = true
     ov:remove()
 end
@@ -404,9 +470,6 @@ mp.observe_property('path', 'string', function(_,path)
 end)
 
 mp.add_key_binding('Shift+MENU', 'dvd-browser', function()
-    if not state.playing_disc then return end
-    update_ass()
-
     if ov.hidden then
         open_browser()
     else

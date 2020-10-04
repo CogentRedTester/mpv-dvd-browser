@@ -51,11 +51,17 @@ local dvd = {}
 local ov = mp.create_osd_overlay('ass-events')
 ov.hidden = true
 local state = {
-    playing_disc = false
+    playing_disc = false,
+    selected = 1,
+
 }
 
 local keybinds = {
-    {"ESC", "exit", function() close_browser() end, {}}
+    {"ESC", "exit", function() close_browser() end, {}},
+    {"ENTER", "open", function() open_file('replace') end, {}},
+    {"Shift+ENTER", "append_playlist", function() open_file('append') end, {}},
+    {'DOWN', 'scroll_down', function() scroll_down() end, {repeatable = true}},
+    {'UP', 'scroll_up', function() scroll_up() end, {repeatable = true}},
 }
 
 --automatically match to the current dvd device
@@ -111,8 +117,34 @@ local function read_disc()
         return
     end
     msg.trace(utils.to_string(dvd))
+
+    --creating a fallback for the title
+    -- if dvd.title == "unknown" then dvd.title = "dvd://" end
+    for i = 2, #dvd.track do
+        local l = dvd.track[i].length
+        local lstr = tostring(l)
+
+        --adding the microseconds as is
+        local index = tostring(l):find([[.[^.]*$]])
+        local str = lstr:sub(index)
+        l = math.floor(l)
+
+        local seconds = l%60
+        str = string.format('%02d', seconds) .. str
+        l = (l - seconds)/60
+
+        local mins = l%60
+        str = string.format('%02d', mins) .. ':' .. str
+        l = (l-mins)/60
+
+        local hours = l%24
+        str = string.format('%02d', hours) .. ':' .. str
+
+        msg.debug('changing length string for title '..(i-1)..' to '..str)
+        dvd.track[i].length = str
+    end
+
     state.playing_disc = true
-    if dvd.title == "unknown" then dvd.title = "dvd://" end
 end
 
 --loads disc information into mpv player and inserts disc titles into the playlist
@@ -134,29 +166,30 @@ local function load_disc()
     --this code block finds the default title of the disc
     local curr_title
 
+    --if the user specified a title number we use that
+    if path ~= "dvd://" then
+        --treating whatever comes after "dvd://" as the title number
+        curr_title = tonumber(path:sub(7))
+
     --if dvd:// was sent and this option is set we set the default ourselves
-    if path == "dvd://" and o.start_from_first_title then
+    elseif o.start_from_first_title then
         mp.set_property('stream-open-filename', "dvd://1")
         curr_title = 1
 
     --otherwise if just dvd:// was sent we need to find the longest title
-    elseif path == "dvd://" then
-        curr_title = dvd.longest_track-1
-
-    --if the user specified a title number we use that
     else
-        --treating whatever comes after "dvd://" as the title number
-        curr_title = tonumber(path:sub(7))
+        curr_title = dvd.longest_track-1
     end
 
-    --modifying the window title to mention the title
-    mp.set_property('title', dvd.title.." - Title "..curr_title)
-    msg.verbose('loading title '..curr_title)
+    --if o.create_playlist is false then the function can end here
+    if not o.create_playlist then
+        mp.set_property('title', dvd.title.." - Title "..curr_title)
+        return
+    end
     local length = mp.get_property_number('playlist-count', 1)
 
     --load files in the playlist under the specified conditions
-    --if o.create_playlist is false then the function effectively ends here
-    if o.create_playlist and ((path == "dvd://" and o.treat_root_as_playlist) or length == 1) then
+    if (path == "dvd://" and o.treat_root_as_playlist) or length == 1 then
         local pos = mp.get_property_number('playlist-pos', 1)
 
         --add all of the files to the playlist
@@ -189,10 +222,19 @@ local function load_disc()
 end
 
 --update the DVD browser
-function update_browser()
-    ov.data = o.ass_header..dvd.title.."\\N".."------------------------------------".."\\N"
-    for _,value in ipairs(dvd.track) do
-        append(o.ass_body.."track "..value.ix.." ["..value.length.."]")
+function update_ass()
+    ov.data = o.ass_header..'📀 dvd://'..dvd.title.."\\N ---------------------------------------------------- \\N"
+    for i=2, #dvd.track do
+        local v = dvd.track[i]
+        append(o.ass_body.."track "..(v.ix-1).." ["..v.length.."]")
+    end
+end
+
+function open_file(flag)
+    mp.commandv('loadfile', 'dvd://'..state.selected, flag, "title="..dvd.title.." - Title "..state.selected)
+
+    if flag == 'replace' then
+        close_browser()
     end
 end
 
@@ -222,7 +264,7 @@ mp.add_hook('on_load', 50, load_disc)
 
 mp.add_key_binding('Shift+MENU', 'dvd-browser', function()
     if not state.playing_disc then return end
-    update_browser()
+    update_ass()
 
     if ov.hidden then
         open_browser()

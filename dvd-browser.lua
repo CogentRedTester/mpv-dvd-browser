@@ -184,13 +184,13 @@ local function read_disc()
 end
 
 --appends the specified playlist item along with the desired options
-local function append_playlist_item(title)
+local function load_dvd_title(title, flag)
     local i = title.ix-1
     local optionstr = "title="..dvd.title.." - Title "..i
     if o.skip_menu then
         optionstr = optionstr..',end=#'..title.num_chapters
     end
-    mp.commandv("loadfile", "dvd://"..i, "append", optionstr)
+    mp.commandv("loadfile", "dvd://"..i, flag, optionstr)
 end
 
 --loads disc information into mpv player and inserts disc titles into the playlist
@@ -242,7 +242,7 @@ local function load_disc()
         for i = 1, #dvd.track do
             if i == curr_title then goto continue end
 
-            append_playlist_item(dvd.track[i])
+            load_dvd_title(dvd.track[i], "append")
             length = length + 1
 
             --we need slightly different behaviour when prepending vs appending a playlist entry
@@ -259,7 +259,7 @@ local function load_disc()
         --if the path is dvd, then we actually need to fully replace this entry in the playlist,
         --otherwise the whole disc will be added to the playlist again if moving back to this entry
         if (path == "dvd://") then
-            append_playlist_item(dvd.track[curr_title])
+            load_dvd_title(dvd.track[curr_title], "append")
             length = length+1
             mp.commandv('playlist-move', length-1, pos+1)
             mp.commandv('playlist-remove', 'current')
@@ -329,7 +329,7 @@ function scroll_down()
 end
 
 function open_file(flag)
-    mp.commandv('loadfile', 'dvd://'..state.selected, flag, "title="..dvd.title.." - Title "..state.selected)
+    load_dvd_title(dvd.track[state.selected], flag)
 
     if flag == 'replace' then
         close_browser()

@@ -11,6 +11,12 @@ local o = {
     --It is recommended that this be left blank unless using wsl
     dvd_device = "",
 
+    num_entries = 20,
+
+    ---------------------
+    --playlist options:
+    ---------------------
+
     --changes default mpv behaviour and loads the first title instead of the longest when
     --the title isn't specified
     start_from_first_title = true,
@@ -24,14 +30,24 @@ local o = {
     --similar to loading a directory or playlist file
     treat_root_as_playlist = true,
 
+    ------------------------------------------
     --wsl options for limitted windows support
+    ------------------------------------------
     wsl = false,
     drive_letter = "",
     wsl_password = "",
 
+    --------------
     --ass options
+    ---------------
     ass_header = "{\\q2\\fs35\\c&00ccff&}",
     ass_body = "{\\q2\\fs25\\c&Hffffff&}",
+    ass_selected = "{\\c&Hfce788&}",
+    ass_playing = "{\\c&H33ff66&}",
+    ass_footerheader = "{\\c&00ccff&\\fs16}",
+    ass_cursor = "{\\c&00ccff&}",
+    ass_length = "",
+    ass_chapters = ""
 }
 
 opt.read_options(o, 'dvd_browser')
@@ -76,8 +92,9 @@ if (o.dvd_device == "") then
 end
 
 --simple function to append to the ass string
-local function append(str)
-    ov.data = ov.data .. str .. "\\N"
+local function append(str, newline)
+    ov.data = ov.data .. str
+    if newline then ov.data = ov.data.."\\N" end
 end
 
 --sends a call to lsdvd to read the contents of the disc
@@ -90,7 +107,7 @@ local function read_disc()
             args = {'wsl', 'echo', o.wsl_password, '|', 'sudo', '-S', 'mount', '-t', 'drvfs', o.drive_letter..":", o.dvd_device}
         })
 
-        --settings wsl arguments
+        --setting wsl arguments
         args = {'wsl', o.lsdvd, o.dvd_device, '-Oy', '-c'}
     else
         args = {o.lsdvd, o.dvd_device, '-Oy', '-c'}
@@ -104,10 +121,8 @@ local function read_disc()
         args = args
     })
 
-    -- msg.verbose(utils.to_string(result))
-
+    --making the python string JSON compatible
     local result = cmd.stdout:gsub("'", '"')
-
     result = result:gsub('lsdvd = ', '')
     dvd = utils.parse_json(result)
 
@@ -120,6 +135,8 @@ local function read_disc()
 
     --creating a fallback for the title
     -- if dvd.title == "unknown" then dvd.title = "dvd://" end
+
+    --making modifications to all the entries
     for i = 2, #dvd.track do
         local l = dvd.track[i].length
         local lstr = tostring(l)
@@ -144,7 +161,14 @@ local function read_disc()
 
         msg.debug('changing length string for title '..(i-1)..' to '..str)
         dvd.track[i].length = str
+
+        --the first entry is always the menu, which mpv can't play. So we'll remove it from
+        --the track list now to simplify things
+        dvd.track[i-1] = dvd.track[i]
     end
+
+    --we need to remove the last entry in the array since it's been moved forward one
+    dvd.track[#dvd.track] = nil
 
     state.playing_disc = true
 end
@@ -225,11 +249,62 @@ end
 
 --update the DVD browser
 function update_ass()
+    local list = dvd.track
+    local length = #list
+
     ov.data = o.ass_header..'📀 dvd://'..dvd.title.."\\N ---------------------------------------------------- \\N"
-    for i=2, #dvd.track do
-        local v = dvd.track[i]
-        append(o.ass_body.."track "..(v.ix-1).." ["..v.length.."]")
+
+    local start = 1
+    local finish = start+o.num_entries-1
+
+    --handling cursor positioning
+    local mid = math.ceil(o.num_entries/2)+1
+    if state.selected+mid > finish then
+        local offset = state.selected - finish + mid
+
+        --if we've overshot the end of the list then undo some of the offset
+        if finish + offset > length then
+            offset = offset - ((finish+offset) - length)
+        end
+
+        start = start + offset
+        finish = finish + offset
     end
+
+    --making sure that we don't overstep the boundaries
+    if start < 1 then start = 1 end
+    local overflow = finish < length
+    --this is necessary when the number of items in the dir is less than the max
+    if not overflow then finish = length end
+
+    --adding a header to show there are items above in the list
+    if start > 1 then append(o.ass_footerheader..(start-1)..' items above\\N\\N') end
+
+    for i=start, finish do
+        local v = dvd.track[i]
+        append(o.ass_body)
+
+        --the below text contains unicode whitespace characters
+        if i == state.selected then append(o.ass_cursor..[[➤  ]]..o.ass_selected)
+        else append([[   ]]) end
+
+        append("Title "..(v.ix-1).."   ["..v.length.."]", true)
+    end
+
+    if overflow then ov.data = ov.data..'\\N'..o.ass_footerheader..#list-finish..' items remaining' end
+    ov:update()
+end
+
+function scroll_up()
+    if state.selected <= 1 then return end
+    state.selected = state.selected - 1
+    update_ass()
+end
+
+function scroll_down()
+    if state.selected >= #dvd.track then return end
+    state.selected = state.selected + 1
+    update_ass()
 end
 
 function open_file(flag)

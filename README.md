@@ -64,7 +64,7 @@ to the directory specified by the `dvd_device` script-opt.
 
 For reference the exact command that will be sent to mount the DVD is:
     
-    wsl echo "[wsl_password]" | sudo -S mount drvfs {dvd-device} [dvd_device]
+    wsl echo "[wsl_password]" | sudo -S mount -t drvfs {dvd-device} [dvd_device]
 
 where `dvd-device` is the contents of mpv's --dvd-device option
 

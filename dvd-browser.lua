@@ -24,10 +24,10 @@ local o = {
     --number of titles to display on the screen at once
     num_entries = 20,
 
-    --by default the player enters an infinite loop of the dvd menu screen after moving past
-    --the final chapter of the title. If this is true, then the script will automatically configure
-    --mpv to end playback before entering the loop
-    skip_menu = true,
+    --by default the player enters an infinite loop, usually of the DVD menu screen, after moving
+    --past the last second of the file. If this option is enabled, then the script will
+    --automatically configure mpv to end playback before entering the loop
+    escape_loop = true,
 
     --changes default mpv behaviour and loads the first title instead of the longest when
     --the title isn't specified
@@ -180,11 +180,13 @@ function read_disc()
 
     --making modifications to all the entries
     for i = 1, #dvd.track do
+        local v = dvd.track[i]
+
         --saving the chapter count
-        dvd.track[i].num_chapters = #dvd.track[i].chapter
+        v.num_chapters = #v.chapter
 
         --modifying the length
-        local l = dvd.track[i].length
+        local l = v.length
         local lstr = tostring(l)
 
         --adding the microseconds as is
@@ -209,7 +211,7 @@ function read_disc()
         str = string.format('%02d', hours) .. ':' .. str
 
         msg.debug('changing length string for title '..(i-1)..' to '..str)
-        dvd.track[i].length = str
+        v.length = str
     end
 
     state.playing_disc = true
@@ -219,7 +221,7 @@ end
 local function load_dvd_title(title, flag)
     local i = title.ix-1
     local optionstr = "title="..dvd.title.." - Title "..i
-    if o.skip_menu then
+    if o.escape_loop and title.num_chapters > 1 then
         optionstr = optionstr..',end=#'..title.num_chapters
     end
     mp.commandv("loadfile", "dvd://"..i, flag, optionstr)
@@ -459,6 +461,18 @@ function close_browser()
     end
     ov.hidden = true
     ov:remove()
+end
+
+--modifies track length to escape infinite loop
+if o.escape_loop then
+    mp.add_hook('on_preloaded', 50, function()
+        if mp.get_property('end', 'none') ~= 'none' then return end
+        local length = mp.get_property_number('duration', 0)
+
+        --for some reason using set_property does not work
+        msg.verbose('modifying length to escape infinite loop')
+        mp.commandv('set', 'file-local-options/length', length-1)
+    end)
 end
 
 --if we're playing a disc then read it and modify playlist appropriately

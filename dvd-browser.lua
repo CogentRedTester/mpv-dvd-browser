@@ -179,7 +179,7 @@ function read_disc()
     -- if dvd.title == "unknown" then dvd.title = "dvd://" end
 
     --making modifications to all the entries
-    for i = 2, #dvd.track do
+    for i = 1, #dvd.track do
         --saving the chapter count
         dvd.track[i].num_chapters = #dvd.track[i].chapter
 
@@ -210,14 +210,7 @@ function read_disc()
 
         msg.debug('changing length string for title '..(i-1)..' to '..str)
         dvd.track[i].length = str
-
-        --the first entry is always the menu, which mpv can't play. So we'll remove it from
-        --the track list now to simplify things
-        dvd.track[i-1] = dvd.track[i]
     end
-
-    --we need to remove the last entry in the array since it's been moved forward one
-    dvd.track[#dvd.track] = nil
 
     state.playing_disc = true
 end
@@ -355,7 +348,7 @@ function update_ass()
     --adding a header to show there are items above in the list
     if start > 1 then append(o.ass_footerheader..(start-1)..' items above\\N\\N') end
 
-    local playing_file = mp.get_property('filename', "1")
+    local playing_file = mp.get_property('filename', "0")
     for i=start, finish do
         local v = dvd.track[i]
         append(o.ass_body)
@@ -365,7 +358,7 @@ function update_ass()
         else append([[   ]]) end
 
         --prints the currently-playing icon and style
-        if playing_file == tostring(i) then
+        if playing_file == tostring(i-1) then
             append(o.ass_playing..[[▶ ]])
             if i == state.selected then append(o.ass_selected) end
         end

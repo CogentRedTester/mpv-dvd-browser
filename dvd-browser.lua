@@ -220,11 +220,7 @@ end
 --appends the specified playlist item along with the desired options
 local function load_dvd_title(title, flag)
     local i = title.ix-1
-    local optionstr = "title="..dvd.title.." - Title "..i
-    if o.escape_loop and title.num_chapters > 1 then
-        optionstr = optionstr..',end=#'..title.num_chapters
-    end
-    mp.commandv("loadfile", "dvd://"..i, flag, optionstr)
+    mp.commandv("loadfile", "dvd://"..i, flag)
 end
 
 --handles actions when dvd:// paths are played directly
@@ -263,15 +259,19 @@ local function load_disc()
         curr_title = dvd.longest_track
     end
 
+    mp.set_property('title', dvd.title.." - Title "..curr_title)
+
+    --I figure that chapter location will be more reliable than relying on mpv to know the track duration
+    --if the number of chapters is less than 2, then there won't be a chapter to mark the end, in that case
+    --we rely on mpv's duration, whch is set in a separate preloaded hook
+    if o.escape_loop and dvd.track[curr_title+1].num_chapters > 1 then mp.set_property('end', "#" .. dvd.track[curr_title+1].num_chapters) end
+
     --if o.create_playlist is false then the function can end here
-    if not o.create_playlist then
-        mp.set_property('title', dvd.title.." - Title "..curr_title)
-        return
-    end
-    local length = mp.get_property_number('playlist-count', 1)
+    if not o.create_playlist then return end
 
     --offsetting curr_title by one to account for lua arrays being 1-based
-    curr_title = curr_title+1
+    urr_title = curr_title+1
+    local length = mp.get_property_number('playlist-count', 1)
 
     --load files in the playlist under the specified conditions
     if (path == "dvd://" and o.treat_root_as_playlist) or length == 1 then

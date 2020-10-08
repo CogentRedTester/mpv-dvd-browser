@@ -298,7 +298,7 @@ local function load_disc()
         if (path == "dvd://") then
             msg.verbose('replacing dvd:// with playlist')
 
-            load_dvd_title(dvd.track[curr_title+1], "append")
+            load_dvd_title(dvd.track[curr_title], "append")
             length = length+1
             mp.commandv('playlist-move', length-1, pos+1)
             mp.commandv('playlist-remove', 'current')

@@ -253,12 +253,12 @@ local function load_disc()
 
     --if dvd:// was sent and this option is set we set the default ourselves
     elseif o.start_from_first_title then
-        mp.set_property('stream-open-filename', "dvd://1")
-        curr_title = 1
+        mp.set_property('stream-open-filename', "dvd://0")
+        curr_title = 0
 
     --otherwise if just dvd:// was sent we need to find the longest title
     else
-        curr_title = dvd.longest_track-1
+        curr_title = dvd.longest_track
     end
 
     --if o.create_playlist is false then the function can end here
@@ -267,6 +267,9 @@ local function load_disc()
         return
     end
     local length = mp.get_property_number('playlist-count', 1)
+
+    --offsetting curr_title by one to account for lua arrays being 1-based
+    curr_title = curr_title+1
 
     --load files in the playlist under the specified conditions
     if (path == "dvd://" and o.treat_root_as_playlist) or length == 1 then
@@ -295,7 +298,7 @@ local function load_disc()
         if (path == "dvd://") then
             msg.verbose('replacing dvd:// with playlist')
 
-            load_dvd_title(dvd.track[curr_title], "append")
+            load_dvd_title(dvd.track[curr_title+1], "append")
             length = length+1
             mp.commandv('playlist-move', length-1, pos+1)
             mp.commandv('playlist-remove', 'current')

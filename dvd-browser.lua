@@ -261,16 +261,11 @@ local function load_disc()
 
     mp.set_property('title', dvd.title.." - Title "..curr_title)
 
-    --I figure that chapter location will be more reliable than relying on mpv to know the track duration
-    --if the number of chapters is less than 2, then there won't be a chapter to mark the end, in that case
-    --we rely on mpv's duration, whch is set in a separate preloaded hook
-    if o.escape_loop and dvd.track[curr_title+1].num_chapters > 1 then mp.set_property('end', "#" .. dvd.track[curr_title+1].num_chapters) end
-
     --if o.create_playlist is false then the function can end here
     if not o.create_playlist then return end
 
     --offsetting curr_title by one to account for lua arrays being 1-based
-    urr_title = curr_title+1
+    curr_title = curr_title+1
     local length = mp.get_property_number('playlist-count', 1)
 
     --load files in the playlist under the specified conditions
@@ -467,11 +462,10 @@ end
 if o.escape_loop then
     mp.add_hook('on_preloaded', 50, function()
         if mp.get_property('end', 'none') ~= 'none' then return end
-        local length = mp.get_property_number('duration', 0)
-
-        --for some reason using set_property does not work
-        msg.verbose('modifying length to escape infinite loop')
-        mp.commandv('set', 'file-local-options/length', length-1)
+        local length = mp.get_property_number('duration', nil)
+        if not length then return end
+        msg.verbose('modifying end of the title to escape infinite loop')
+        mp.set_property('file-local-options/end', length-1)
     end)
 end
 

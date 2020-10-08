@@ -35,8 +35,8 @@ If you use both scripts and enable the options `file_browser` for this script, a
 
 Also make sure that you are using just the file-browser keybind, you can overwrite the keybind for this script by putting `MENU script-binding browse-files` in input.conf.
 
-## Menu Loop
-Normally when mpv is playing a DVD title it enters an infinite loop of the menu screen after playback moves beyond the last chapter of track.
+## Infinite Loop
+Normally when mpv is playing a DVD title it enters an infinite loop after playback moves beyond the last second of the title.
 Since this is rarely desired bahaviour dvd-browser will automatically configure mpv to ignore this section of the file, which allows proper playlist support for dvd titles.
 
 This can be disabled in the [configuration file](dvd_browser.conf).

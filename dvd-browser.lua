@@ -461,6 +461,7 @@ end
 --modifies track length to escape infinite loop
 if o.escape_loop then
     mp.add_hook('on_preloaded', 50, function()
+        if mp.get_property("path", ""):find("dvd://") ~= 1 then return end
         if mp.get_property('end', 'none') ~= 'none' then return end
         local length = mp.get_property_number('duration', nil)
         if not length then return end

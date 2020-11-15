@@ -220,7 +220,12 @@ end
 --appends the specified playlist item along with the desired options
 local function load_dvd_title(title, flag)
     local i = title.ix-1
-    mp.commandv("loadfile", "dvd://"..i, flag)
+
+    if o.escape_loop then 
+        mp.commandv("loadfile", "dvd://"..i, flag, "end=#"..title.num_chapters)
+    else
+        mp.commandv("loadfile", "dvd://"..i, flag)
+    end
 end
 
 --handles actions when dvd:// paths are played directly

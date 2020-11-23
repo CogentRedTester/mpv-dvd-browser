@@ -5,6 +5,8 @@
 This script uses the `lsdvd` commandline utility to allow users to view and select titles for DVDs from directly within mpv.
 The browser is interractive and allows for both playing the selected title, or appending it to the playlist.
 
+This script requires [mpv-scroll-list](https://github.com/CogentRedTester/mpv-scroll-list) to work, simply place `scroll-list.lua` into the `~~/scripts` folder.
+
 ## Browser
 The browser provides useful information to help choose which title to play.
 Currently it just shows track length and the number of chapters, but this may be expanded in the future to show track information as well.

@@ -134,14 +134,8 @@ list.format_line = function(this, i, v)
         this:newline()
 end
 
---this function updates dvd information and updates the browser
-function update()
-    read_disc()
-    list:update()
-end
-
 --sends a call to lsdvd to read the contents of the disc
-function read_disc()
+local function read_disc()
     msg.verbose('reading contents of ' .. o.dvd_device)
 
     local args
@@ -227,6 +221,12 @@ function read_disc()
 
     state.playing_disc = true
     list.list = dvd.track
+end
+
+--this function updates dvd information and updates the browser
+local function update()
+    read_disc()
+    list:update()
 end
 
 --appends the specified playlist item along with the desired options
@@ -321,7 +321,7 @@ local function load_disc()
 end
 
 --opens the currently selected file
-function open_file(flag)
+local function open_file(flag)
     load_dvd_title(dvd.track[list.selected], flag)
 
     if flag == 'replace' then
@@ -330,7 +330,7 @@ function open_file(flag)
 end
 
 --for file-browser compatibility
-function up_dir()
+local function up_dir()
     local dir
 
     if (o.wsl) then dir = mp.get_property('dvd-device', '')
@@ -352,7 +352,7 @@ function up_dir()
 end
 
 --opens the browser and declares dynamic keybinds
-function open_browser()
+local function open_browser()
     if not state.playing_disc then
         update()
     else
@@ -375,6 +375,7 @@ local file_browser_keybinds = {
     {'Shift+HOME', 'root', function() list:close() ; mp.commandv('script-message', 'goto-root-directory') end, {}}
 }
 
+--adds the file-browser keybinds to the keybinds array
 if o.file_browser then
     local back = #list.keybinds
     for i = 1, #file_browser_keybinds do

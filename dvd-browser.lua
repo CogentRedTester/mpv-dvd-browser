@@ -81,6 +81,14 @@ opt.read_options(o, 'dvd_browser')
             chapter = array of chapters in the title
             num_chapters = length of chapters array (added by me)
 ]]--
+
+package.path = mp.command_native( {"expand-path", (mp.get_opt("scroll_list-directory") or "~~/scripts") } ) .. "/?.lua;" .. package.path
+local list = require "scroll-list"
+
+list.header_style = o.ass_header
+list.list_style = o.ass_body
+list.wrapper_style = o.ass_footerheader
+
 local dvd = {}
 local ov = mp.create_osd_overlay('ass-events')
 ov.hidden = true
@@ -88,21 +96,6 @@ local state = {
     playing_disc = false,
     selected = 1,
     flag_update = false
-}
-
-local keybinds = {
-    {"ESC", "exit", function() close_browser() end, {}},
-    {"ENTER", "open", function() open_file('replace') end, {}},
-    {"Shift+ENTER", "append_playlist", function() open_file('append') end, {}},
-    {'DOWN', 'scroll_down', function() scroll_down() end, {repeatable = true}},
-    {'UP', 'scroll_up', function() scroll_up() end, {repeatable = true}},
-    {'Ctrl+r', 'reload', function() read_disc() ; update_ass() end, {}}
-}
-
-local file_browser_keybinds = {
-    {'LEFT', 'up_dir', function() up_dir() end, {}},
-    {'HOME', 'goto_current', function() close_browser() ; mp.commandv('script-message', 'goto-current-directory') end, {}},
-    {'Shift+HOME', 'root', function() close_browser() ; mp.commandv('script-message', 'goto-root-directory') end, {}}
 }
 
 --automatically match to the current dvd device
@@ -116,17 +109,35 @@ if (o.dvd_device == "") then
     end)
 end
 
+list.format_header = function(this)
+    local title
+    if dvd == nil then title = ""
+    else title = dvd.title end
+    this.ass.data = o.ass_header..'📀 dvd://'..title.."\\N ---------------------------------------------------- \\N"
+end
+
 --simple function to append to the ass string
-local function append(str, newline)
-    ov.data = ov.data .. str
-    if newline then ov.data = ov.data.."\\N" end
+list.format_line = function(this, i, v)
+        this:append(o.ass_body)
+
+        --the below text contains unicode whitespace characters
+        if i == list.selected then this:append(o.ass_cursor..[[➤\h]]..o.ass_selected)
+        else this:append([[\h\h\h\h]]) end
+
+        --prints the currently-playing icon and style
+        if mp.get_property('filename', "0") == tostring(i-1) then
+            this:append(o.ass_playing)
+        end
+
+        this:append("Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]")
+        this:append("   "..v.num_chapters.." chapters", true)
+        this:newline()
 end
 
 --this function updates dvd information and updates the browser
 function update()
     read_disc()
-    update_ass()
-    ov:update()
+    list:update()
 end
 
 --sends a call to lsdvd to read the contents of the disc
@@ -215,6 +226,7 @@ function read_disc()
     end
 
     state.playing_disc = true
+    list.list = dvd.track
 end
 
 --appends the specified playlist item along with the desired options
@@ -308,94 +320,12 @@ local function load_disc()
     end
 end
 
-function load_header()
-    local title
-    if dvd == nil then title = ""
-    else title = dvd.title end
-    ov.data = o.ass_header..'📀 dvd://'..title.."\\N ---------------------------------------------------- \\N"
-end
-
---update the DVD browser
-function update_ass()
-    load_header()
-
-    if dvd == nil then
-        append('cannot load DVD')
-        return
-    end
-
-    local list = dvd.track
-    local length = #list
-
-    local start = 1
-    local finish = start+o.num_entries-1
-
-    --handling cursor positioning
-    local mid = math.ceil(o.num_entries/2)+1
-    if state.selected+mid > finish then
-        local offset = state.selected - finish + mid
-
-        --if we've overshot the end of the list then undo some of the offset
-        if finish + offset > length then
-            offset = offset - ((finish+offset) - length)
-        end
-
-        start = start + offset
-        finish = finish + offset
-    end
-
-    --making sure that we don't overstep the boundaries
-    if start < 1 then start = 1 end
-    local overflow = finish < length
-    --this is necessary when the number of items in the dir is less than the max
-    if not overflow then finish = length end
-
-    --adding a header to show there are items above in the list
-    if start > 1 then append(o.ass_footerheader..(start-1)..' items above\\N\\N') end
-
-    local playing_file = mp.get_property('filename', "0")
-    for i=start, finish do
-        local v = dvd.track[i]
-        append(o.ass_body)
-
-        --the below text contains unicode whitespace characters
-        if i == state.selected then append(o.ass_cursor..[[➤  ]]..o.ass_selected)
-        else append([[   ]]) end
-
-        --prints the currently-playing icon and style
-        if playing_file == tostring(i-1) then
-            append(o.ass_playing..[[▶ ]])
-            if i == state.selected then append(o.ass_selected) end
-        end
-
-        append("Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]")
-        append("   "..v.num_chapters.." chapters", true)
-    end
-
-    if overflow then ov.data = ov.data..'\\N'..o.ass_footerheader..#list-finish..' items remaining' end
-    ov:update()
-end
-
---moves the cursor up
-function scroll_up()
-    if state.selected <= 1 then return end
-    state.selected = state.selected - 1
-    update_ass()
-end
-
---moves the cursor down
-function scroll_down()
-    if state.selected >= #dvd.track then return end
-    state.selected = state.selected + 1
-    update_ass()
-end
-
 --opens the currently selected file
 function open_file(flag)
-    load_dvd_title(dvd.track[state.selected], flag)
+    load_dvd_title(dvd.track[list.selected], flag)
 
     if flag == 'replace' then
-        close_browser()
+        list:close()
     end
 end
 
@@ -417,50 +347,39 @@ function up_dir()
     if index == nil then dir = ""
     else dir = dir:sub(index):reverse() end
 
-    close_browser()
+    list:close()
     mp.commandv('script-message', 'browse-directory', dir)
 end
 
 --opens the browser and declares dynamic keybinds
 function open_browser()
-    for i = 1, #keybinds do
-        local v = keybinds[i]
-        mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
-    end
-
-    --adds keybinds for file-browser compatibility
-    if o.file_browser then
-        for i = 1, #file_browser_keybinds do
-            local v = file_browser_keybinds[i]
-            mp.add_forced_key_binding(v[1], 'dynamic/'..v[2], v[3], v[4])
-        end
-    end
-
-    ov.hidden = false
-
-    --if we're not currently playing the disc, then we won't know if the disc has been changed,
-    --so we do a full update
     if not state.playing_disc then
         update()
     else
-        if state.flag_update then update_ass()
-        else ov:update() end
+        list:open()
     end
 end
 
---closes the browser and removed dynamic keybinds
-function close_browser()
-    for i = 1, #keybinds do
-        mp.remove_key_binding('dynamic/'..keybinds[i][2])
-    end
+list.keybinds = {
+    {"ESC", "exit", function() list:close() end, {}},
+    {"ENTER", "open", function() open_file('replace') end, {}},
+    {"Shift+ENTER", "append_playlist", function() open_file('append') end, {}},
+    {'DOWN', 'scroll_down', function() list:scroll_down() end, {repeatable = true}},
+    {'UP', 'scroll_up', function() list:scroll_up() end, {repeatable = true}},
+    {'Ctrl+r', 'reload', function() read_disc() ; list:update() end, {}}
+}
 
-    if o.file_browser then
-        for i = 1, #file_browser_keybinds do
-            mp.remove_key_binding('dynamic/'..file_browser_keybinds[i][2])
-        end
+local file_browser_keybinds = {
+    {'LEFT', 'up_dir', function() up_dir() end, {}},
+    {'HOME', 'goto_current', function() list:close() ; mp.commandv('script-message', 'goto-current-directory') end, {}},
+    {'Shift+HOME', 'root', function() list:close() ; mp.commandv('script-message', 'goto-root-directory') end, {}}
+}
+
+if o.file_browser then
+    local back = #list.keybinds
+    for i = 1, #file_browser_keybinds do
+        list.keybinds[back+i] = file_browser_keybinds[i]
     end
-    ov.hidden = true
-    ov:remove()
 end
 
 --modifies track length to escape infinite loop
@@ -479,8 +398,7 @@ end
 mp.add_hook('on_load', 50, load_disc)
 
 mp.observe_property('path', 'string', function(_,path)
-    if not ov.hidden then update_ass()
-    else state.flag_update = true end
+    if state.playing_disc then list:update() end
 end)
 
 mp.register_script_message('browse-dvd', open_browser)
@@ -489,6 +407,6 @@ mp.add_key_binding('MENU', 'dvd-browser', function()
     if ov.hidden then
         open_browser()
     else
-        close_browser()
+        list:close()
     end
 end)

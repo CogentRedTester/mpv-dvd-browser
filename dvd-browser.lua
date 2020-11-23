@@ -88,10 +88,9 @@ local list = require "scroll-list"
 list.header_style = o.ass_header
 list.list_style = o.ass_body
 list.wrapper_style = o.ass_footerheader
+list.empty_text = "insert DVD"
 
 local dvd = {}
-local ov = mp.create_osd_overlay('ass-events')
-ov.hidden = true
 local state = {
     playing_disc = false,
     selected = 1,

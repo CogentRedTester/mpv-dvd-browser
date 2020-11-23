@@ -352,12 +352,14 @@ local function up_dir()
 end
 
 --opens the browser and declares dynamic keybinds
-local function open_browser()
+list.open = function(this)
+    this.hidden = false
     if not state.playing_disc then
         update()
     else
-        list:open()
+        this:open_list()
     end
+    this:add_keybinds()
 end
 
 list.keybinds = {
@@ -402,12 +404,6 @@ mp.observe_property('path', 'string', function(_,path)
     if state.playing_disc then list:update() end
 end)
 
-mp.register_script_message('browse-dvd', open_browser)
+mp.register_script_message('browse-dvd', function() list:open() end)
 
-mp.add_key_binding('MENU', 'dvd-browser', function()
-    if ov.hidden then
-        open_browser()
-    else
-        list:close()
-    end
-end)
+mp.add_key_binding('MENU', 'dvd-browser', function() list:toggle() end)

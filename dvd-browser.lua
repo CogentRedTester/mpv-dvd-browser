@@ -391,6 +391,7 @@ mp.register_script_message("dvd/browse-dir", function(_, callback, ...)
     response.sort = false
     response.ass_escape = false
     response.directory_label = get_header_str()
+    response.empty_text = "insert DVD"
     mp.commandv("script-message", callback, utils.format_json(response), ...)
 end)
 

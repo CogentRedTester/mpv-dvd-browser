@@ -33,9 +33,6 @@ local o = {
     --the title isn't specified
     start_from_first_title = true,
 
-    --enables compatibility with mpv-file-browser
-    file_browser = false,
-
     ---------------------
     --playlist options:
     ---------------------
@@ -108,29 +105,36 @@ if (o.dvd_device == "") then
     end)
 end
 
-list.format_header = function(this)
+local function get_header_str()
     local title
     if dvd == nil then title = ""
     else title = dvd.title end
-    this.ass.data = o.ass_header..'📀 dvd://'..title.."\\N ---------------------------------------------------- \\N"
+    return '📀 dvd://'..title
+end
+
+local function get_line_str(v)
+    return "Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]   "..v.num_chapters.." chapters"
+end
+
+function list:format_header()
+    self.ass.data = o.ass_header..get_header_str().."\\N ---------------------------------------------------- \\N"
 end
 
 --simple function to append to the ass string
-list.format_line = function(this, i, v)
-        this:append(o.ass_body)
+function list:format_line(i, v)
+        self:append(o.ass_body)
 
         --the below text contains unicode whitespace characters
-        if i == list.selected then this:append(o.ass_cursor..[[➤\h]]..o.ass_selected)
-        else this:append([[\h\h\h\h]]) end
+        if i == list.selected then self:append(o.ass_cursor..[[➤\h]]..o.ass_selected)
+        else self:append([[\h\h\h\h]]) end
 
         --prints the currently-playing icon and style
         if mp.get_property('filename', "0") == tostring(i-1) then
-            this:append(o.ass_playing)
+            self:append(o.ass_playing)
         end
 
-        this:append("Title "..(v.ix-1)..o.ass_length.."   ["..v.length.."]")
-        this:append("   "..v.num_chapters.." chapters", true)
-        this:newline()
+        self:append(get_line_str(v))
+        self:newline()
 end
 
 --sends a call to lsdvd to read the contents of the disc
@@ -328,37 +332,15 @@ local function open_file(flag)
     end
 end
 
---for file-browser compatibility
-local function up_dir()
-    local dir
-
-    if (o.wsl) then dir = mp.get_property('dvd-device', '')
-    else dir = o.dvd_device end
-
-    dir = dir:reverse()
-    local index = dir:find("[/\\]")
-
-    while index == 1 do
-        dir = dir:sub(2)
-        index = dir:find("[/\\]")
-    end
-
-    if index == nil then dir = ""
-    else dir = dir:sub(index):reverse() end
-
-    list:close()
-    mp.commandv('script-message', 'browse-directory', dir)
-end
-
 --opens the browser and declares dynamic keybinds
-list.open = function(this)
-    this.hidden = false
+function list:open()
+    self.hidden = false
     if not state.playing_disc then
         update()
     else
-        this:open_list()
+        self:open_list()
     end
-    this:add_keybinds()
+    self:add_keybinds()
 end
 
 list.keybinds = {
@@ -370,31 +352,45 @@ list.keybinds = {
     {'Ctrl+r', 'reload', function() read_disc() ; list:update() end, {}}
 }
 
-local file_browser_keybinds = {
-    {'LEFT', 'up_dir', function() up_dir() end, {}},
-    {'HOME', 'goto_current', function() list:close() ; mp.commandv('script-message', 'goto-current-directory') end, {}},
-    {'Shift+HOME', 'root', function() list:close() ; mp.commandv('script-message', 'goto-root-directory') end, {}}
-}
-
---adds the file-browser keybinds to the keybinds array
-if o.file_browser then
-    local back = #list.keybinds
-    for i = 1, #file_browser_keybinds do
-        list.keybinds[back+i] = file_browser_keybinds[i]
-    end
-end
-
 --modifies track length to escape infinite loop
 if o.escape_loop then
     mp.add_hook('on_preloaded', 50, function()
         if mp.get_property("path", ""):find("dvd://") ~= 1 then return end
         if mp.get_property('end', 'none') ~= 'none' then return end
-        local length = mp.get_property_number('duration', nil)
-        if not length then return end
+
+        local filename = mp.get_property("filename", "1")
+        local num_chapters = dvd.track[tonumber(filename)+1].num_chapters
         msg.verbose('modifying end of the title to escape infinite loop')
-        mp.set_property('file-local-options/end', length-1)
+        mp.set_property('file-local-options/end', "#"..num_chapters)
     end)
 end
+
+--custom handling for opening directories from file-browser
+mp.register_script_message("dvd/open-dir", function(_, flags)
+    mp.commandv("loadfile", "dvd://", flags)
+end)
+
+--custom parsing of directories
+mp.register_script_message("dvd/browse-dir", function(_, callback, ...)
+    local response = {}
+    read_disc()
+    response.list = {}
+
+    for i = 1, #dvd.track do
+        response.list[i] = {
+            ass = get_line_str(dvd.track[i]),
+            name = tostring(dvd.track[i].ix-1),
+            path = "dvd://"..(dvd.track[i].ix-1),
+            type = "file"
+        }
+    end
+
+    response.filter = false
+    response.sort = false
+    response.ass_escape = false
+    response.directory_label = get_header_str()
+    mp.commandv("script-message", callback, utils.format_json(response), ...)
+end)
 
 --if we're playing a disc then read it and modify playlist appropriately
 mp.add_hook('on_load', 50, load_disc)

@@ -376,13 +376,15 @@ mp.register_script_message("dvd/browse-dir", function(_, callback, ...)
     read_disc()
     response.list = {}
 
-    for i = 1, #dvd.track do
-        response.list[i] = {
-            ass = get_line_str(dvd.track[i]),
-            name = tostring(dvd.track[i].ix-1),
-            path = "dvd://"..(dvd.track[i].ix-1),
-            type = "file"
-        }
+    if dvd then
+        for i = 1, #dvd.track do
+            response.list[i] = {
+                ass = get_line_str(dvd.track[i]),
+                name = tostring(dvd.track[i].ix-1),
+                path = "dvd://"..(dvd.track[i].ix-1),
+                type = "file"
+            }
+        end
     end
 
     response.filter = false

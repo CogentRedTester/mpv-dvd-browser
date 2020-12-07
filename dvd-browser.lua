@@ -275,7 +275,7 @@ local function load_disc()
         curr_title = dvd.longest_track
     end
 
-    mp.set_property('title', dvd.title.." - Title "..curr_title)
+    mp.set_property('file-local-options/title', dvd.title.." - Title "..curr_title)
 
     --if o.create_playlist is false then the function can end here
     if not o.create_playlist then return end

@@ -79,7 +79,7 @@ opt.read_options(o, 'dvd_browser')
             num_chapters = length of chapters array (added by me)
 ]]--
 
-package.path = mp.command_native( {"expand-path", (mp.get_opt("scroll_list-directory") or "~~/scripts") } ) .. "/?.lua;" .. package.path
+package.path = mp.command_native( {"expand-path", "~~/scripts" } ) .. "/?.lua;" .. package.path
 local list = require "scroll-list"
 
 list.header_style = o.ass_header

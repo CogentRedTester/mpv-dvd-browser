@@ -393,18 +393,8 @@ local dvd_module = {
 }
 
 function dvd_module:can_parse(directory)
-    return directory:sub(1,6) == "dvd://" or directory == self.dvd_device
+    return directory:sub(1,6) == "dvd://" or directory == self.get_dvd_device()
 end
-
-mp.observe_property("dvd-device", "string", function(_, device)
-    if not device or device == "" then device = "/dev/dvd/" end
-
-    --extra parsing to better work with file-browser
-    device = device:gsub([[\]],[[/]])
-    device = device:gsub([[/./]], [[/]])
-    if device:sub(-1) ~= '/' then device = device..'/' end
-    dvd_module.dvd_device = device
-end)
 
 function dvd_module:parse()
     read_disc()
@@ -421,8 +411,8 @@ function dvd_module:parse()
         end
     end
 
-    self.state.directory_label = get_header_str()
-    self.state.empty_text = "insert DVD"
+    self.set_directory_label( get_header_str() )
+    self.set_empty_text( "insert DVD" )
     return list, true, true
 end
 

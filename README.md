@@ -29,11 +29,10 @@ The following keybinds are only set while the browser is open:
 
 ## File Browser
 While this script works perfectly well on its own, I have also designed it to interface with my script [mpv-file-browser](https://github.com/CogentRedTester/mpv-file-browser).
-If you use both scripts and enable the option `dvd_browser` inside file_browser, then this script will act as an addon to file browser and send file browser the contents of the dvd.
+If you place `dvd-browser.lua` into the `~~/script-modules/file-browser-addons` directory and enable the option `addons` inside file_browser, then this script will act as an addon to file browser and send file browser the contents of the dvd.
 File browser will automatically detect when playing a dvd, or when entering the dvd directory, and will query dvd browser for the titles.
 All functionality from the dvd-browser page is supported in file browser, plus many more features.
-
-Make sure that you are using just the file-browser keybind to open the browser instead of dvd-browser's keybind. Both scripts have the same binding by default, so you may need to overwrite the keybind for this script by putting `MENU script-binding browse-files` in input.conf.
+When loaded as an addon the inbuilt list gui is disabled, hence scroll list is no-longer required.
 
 ## Infinite Loop
 Normally when mpv is playing a DVD title it enters an infinite loop after playback moves beyond the last second of the title.

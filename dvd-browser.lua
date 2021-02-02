@@ -388,8 +388,7 @@ end
 
 --module functions when loading as file_browser addon
 local dvd_module = {
-    priority = 50,
-    dvd_device = ""
+    priority = 50
 }
 
 function dvd_module:can_parse(directory)

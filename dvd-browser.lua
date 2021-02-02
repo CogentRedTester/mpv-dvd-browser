@@ -79,13 +79,20 @@ opt.read_options(o, 'dvd_browser')
             num_chapters = length of chapters array (added by me)
 ]]--
 
-package.path = mp.command_native( {"expand-path", "~~/script-modules/?.lua;" } ) .. package.path
-local list = require "scroll-list"
+--if the script name includes file_browser, then the script is being loaded
+--as an addon, and hence we can skip loading several things
+local STANDALONE = not mp.get_script_name():find("file_browser")
 
-list.header_style = o.ass_header
-list.list_style = o.ass_body
-list.wrapper_style = o.ass_footerheader
-list.empty_text = "insert DVD"
+local list = {}
+if STANDALONE then
+    package.path = mp.command_native( {"expand-path", "~~/script-modules/?.lua;" } ) .. package.path
+    list = require "scroll-list"
+
+    list.header_style = o.ass_header
+    list.list_style = o.ass_body
+    list.wrapper_style = o.ass_footerheader
+    list.empty_text = "insert DVD"
+end
 
 local dvd = {}
 local state = {
@@ -365,20 +372,36 @@ if o.escape_loop then
     end)
 end
 
---custom handling for opening directories from file-browser
-mp.register_script_message("dvd/open-dir", function(_, flags)
-    mp.commandv("loadfile", "dvd://", flags)
-end)
+--if we're playing a disc then read it and modify playlist appropriately
+mp.add_hook('on_load', 50, load_disc)
 
---custom parsing of directories
-mp.register_script_message("dvd/browse-dir", function(_, callback, ...)
-    local response = {}
+--if these events are disabled then the list gui functions are never called
+if STANDALONE then
+    mp.observe_property('path', 'string', function(_,path)
+        if state.playing_disc then list:update() end
+    end)
+
+    mp.register_script_message('browse-dvd', function() list:open() end)
+
+    mp.add_key_binding('MENU', 'dvd-browser', function() list:toggle() end)
+end
+
+--module functions when loading as file_browser addon
+local dvd_module = {
+    priority = 50
+}
+
+function dvd_module:can_parse(directory)
+    return directory:sub(1,6) == "dvd://" or directory == self.get_dvd_device()
+end
+
+function dvd_module:parse()
     read_disc()
-    response.list = {}
+    local list = {}
 
     if dvd then
         for i = 1, #dvd.track do
-            response.list[i] = {
+            list[i] = {
                 ass = get_line_str(dvd.track[i]),
                 name = tostring(dvd.track[i].ix-1),
                 path = "dvd://"..(dvd.track[i].ix-1),
@@ -387,21 +410,9 @@ mp.register_script_message("dvd/browse-dir", function(_, callback, ...)
         end
     end
 
-    response.filter = false
-    response.sort = false
-    response.ass_escape = false
-    response.directory_label = get_header_str()
-    response.empty_text = "insert DVD"
-    mp.commandv("script-message", callback, utils.format_json(response), ...)
-end)
+    self.set_directory_label( get_header_str() )
+    self.set_empty_text( "insert DVD" )
+    return list, true, true
+end
 
---if we're playing a disc then read it and modify playlist appropriately
-mp.add_hook('on_load', 50, load_disc)
-
-mp.observe_property('path', 'string', function(_,path)
-    if state.playing_disc then list:update() end
-end)
-
-mp.register_script_message('browse-dvd', function() list:open() end)
-
-mp.add_key_binding('MENU', 'dvd-browser', function() list:toggle() end)
+return dvd_module

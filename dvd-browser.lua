@@ -395,7 +395,7 @@ function dvd_module:can_parse(directory)
     return directory:sub(1,6) == "dvd://" or directory == self.get_dvd_device()
 end
 
-function dvd_module:parse(directory)
+function dvd_module:parse()
     read_disc()
     local list = {}
 
@@ -410,9 +410,12 @@ function dvd_module:parse(directory)
         end
     end
 
-    if self.get_directory() == directory then self.set_directory_label( get_header_str() ) end
-    self.set_empty_text( "insert DVD" )
-    return list, true, true
+    return list, {
+        empty_text = "insert DVD",
+        directory_label = get_header_str(),
+        filtered = true,
+        sorted = true
+    }
 end
 
 return dvd_module

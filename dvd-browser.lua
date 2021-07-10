@@ -301,20 +301,18 @@ local function load_disc()
 
         --add all of the files to the playlist
         for i = 1, #dvd.track do
-            if i == curr_title then goto continue end
+            if i ~= curr_title then
+                load_dvd_title(dvd.track[i], "append")
+                length = length + 1
 
-            load_dvd_title(dvd.track[i], "append")
-            length = length + 1
-
-            --we need slightly different behaviour when prepending vs appending a playlist entry
-            if (i < curr_title) then
-                mp.commandv("playlist-move", length-1, pos)
-                pos = pos+1
-            elseif (i > curr_title) then
-                mp.commandv("playlist-move", length-1, pos+(i-curr_title))
+                --we need slightly different behaviour when prepending vs appending a playlist entry
+                if (i < curr_title) then
+                    mp.commandv("playlist-move", length-1, pos)
+                    pos = pos+1
+                elseif (i > curr_title) then
+                    mp.commandv("playlist-move", length-1, pos+(i-curr_title))
+                end
             end
-
-            ::continue::
         end
 
         --if the path is dvd, then we actually need to fully replace this entry in the playlist,

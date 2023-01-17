@@ -242,12 +242,7 @@ end
 --appends the specified playlist item along with the desired options
 local function load_dvd_title(title, flag)
     local i = title.ix-1
-
-    if o.escape_loop then 
-        mp.commandv("loadfile", "dvd://"..i, flag, "end=#"..title.num_chapters)
-    else
-        mp.commandv("loadfile", "dvd://"..i, flag)
-    end
+    mp.commandv("loadfile", "dvd://"..i, flag)
 end
 
 --handles actions when dvd:// paths are played directly
@@ -363,8 +358,12 @@ if o.escape_loop then
         if mp.get_property("path", ""):find("dvd://") ~= 1 then return end
         if mp.get_property('end', 'none') ~= 'none' then return end
 
-        local filename = mp.get_property("filename", "1")
-        local num_chapters = dvd.track[tonumber(filename)+1].num_chapters
+        local chapters = mp.get_property_native('chapter-list')
+        if not chapters then return end
+
+        local num_chapters = #chapters
+        if (mp.get_property_number('duration', 0) - chapters[num_chapters].time) > 1 then return end
+
         msg.verbose('modifying end of the title to escape infinite loop')
         mp.set_property('file-local-options/end', "#"..num_chapters)
     end)

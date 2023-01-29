@@ -362,6 +362,7 @@ if o.escape_loop then
         if not chapters then return end
 
         local num_chapters = #chapters
+        msg.warn('DEBUG_MESSAGE:', num_chapters, ' ',  utils.to_string(chapters))
         if (mp.get_property_number('duration', 0) - chapters[num_chapters].time) > 1 then return end
 
         msg.verbose('modifying end of the title to escape infinite loop')

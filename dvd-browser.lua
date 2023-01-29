@@ -361,6 +361,7 @@ if o.escape_loop then
         local chapters = mp.get_property_native('chapter-list')
         if not chapters then return end
 
+        msg.warn('DEBUG_MESSAGE:', chapters, type(chapters))
         local num_chapters = #chapters
         msg.warn('DEBUG_MESSAGE:', num_chapters, ' ',  utils.to_string(chapters))
         if (mp.get_property_number('duration', 0) - chapters[num_chapters].time) > 1 then return end

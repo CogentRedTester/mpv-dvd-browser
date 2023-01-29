@@ -362,7 +362,10 @@ if o.escape_loop then
         if not chapters then return end
 
         local num_chapters = #chapters
-        if (mp.get_property_number('duration', 0) - chapters[num_chapters].time) > 1 then return end
+
+        -- occurs if there are no chapters
+        if not chapters[num_chapters] then return end
+        if (mp.get_property_number('duration', 0) - (chapters[num_chapters].time or 0)) > 1 then return end
 
         msg.verbose('modifying end of the title to escape infinite loop')
         mp.set_property('file-local-options/end', "#"..num_chapters)
